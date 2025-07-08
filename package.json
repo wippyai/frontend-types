@@ -1,0 +1,11 @@
+{
+  "name": "@types/wippy",
+  "version": "1.0.0",
+  "description": "Public Types for Wippy",
+  "repository": "git@github.com:wippyai/frontend-types.git",
+  "author": "Andrei Kirkouski <andrew@spiralscout.com>",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ]
+}

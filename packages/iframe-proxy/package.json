@@ -1,0 +1,7 @@
+{
+  "name": "@types/wippy-iframe-proxy",
+  "description": "Types for wippy iframe proxy",
+  "version": "1.0.0",
+  "types": "proxy.d.ts",
+  "author": "Andrei Kirkouski <andrew@spiralscout.com>"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "@types/wippy-web-component-proxy",
+  "description": "Types for wippy web-component proxy",
+  "version": "1.0.0",
+  "types": "proxy.d.ts"
+}
