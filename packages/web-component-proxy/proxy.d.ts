@@ -1,8 +1,9 @@
 declare module '@wippy/proxy' {
-    import * as nanoevents from 'nanoevents';
+        import * as nanoevents from 'nanoevents';
 import { ConfirmationOptions } from 'primevue/confirmationoptions';
 import * as primevue_toast from 'primevue/toast';
 import * as axios from 'axios';
+import { AxiosDefaults } from 'axios';
 import { addCollection } from '@iconify/vue';
 
 declare namespace PageApi {
@@ -497,10 +498,12 @@ interface AppFeatures extends I18NFeatureTypes {
         APP_AUTH_API_URL: string;
         APP_WEBSOCKET_URL: string;
     };
+    axiosDefaults?: Partial<AxiosDefaults>;
     routePrefix?: string;
     showAdmin?: boolean;
     allowSelectModel?: boolean;
     startNavOpen?: boolean;
+    hideNavBar?: boolean;
 }
 interface AppAuthConfig {
     token: string;
@@ -547,19 +550,19 @@ interface FormResult {
 }
 type LimitedConfirmationOptions = Omit<ConfirmationOptions, 'target' | 'appendTo' | 'onShow' | 'onHide'>;
 
-declare const fontCss: string;
-declare const iframeCss: string;
-declare const markdown: string;
-declare const primeVueCss: string;
-declare const themeConfig: string;
+declare const fontCssUrl: string;
+declare const iframeCssUrl: string;
+declare const markdownCssUrl: string;
+declare const primeVueCssUrl: string;
+declare const themeConfigUrl: string;
 
-declare const hostCssRaw_fontCss: typeof fontCss;
-declare const hostCssRaw_iframeCss: typeof iframeCss;
-declare const hostCssRaw_markdown: typeof markdown;
-declare const hostCssRaw_primeVueCss: typeof primeVueCss;
-declare const hostCssRaw_themeConfig: typeof themeConfig;
+declare const hostCssRaw_fontCssUrl: typeof fontCssUrl;
+declare const hostCssRaw_iframeCssUrl: typeof iframeCssUrl;
+declare const hostCssRaw_markdownCssUrl: typeof markdownCssUrl;
+declare const hostCssRaw_primeVueCssUrl: typeof primeVueCssUrl;
+declare const hostCssRaw_themeConfigUrl: typeof themeConfigUrl;
 declare namespace hostCssRaw {
-  export { hostCssRaw_fontCss as fontCss, hostCssRaw_iframeCss as iframeCss, hostCssRaw_markdown as markdown, hostCssRaw_primeVueCss as primeVueCss, hostCssRaw_themeConfig as themeConfig };
+  export { hostCssRaw_fontCssUrl as fontCssUrl, hostCssRaw_iframeCssUrl as iframeCssUrl, hostCssRaw_markdownCssUrl as markdownCssUrl, hostCssRaw_primeVueCssUrl as primeVueCssUrl, hostCssRaw_themeConfigUrl as themeConfigUrl };
 }
 
 declare const resolvers: {
@@ -635,6 +638,7 @@ declare const resolvers: {
      * @param ComponentClass
      */
     define: (importMetaUrl: string, ComponentClass: typeof HTMLElement) => void;
+    loadCss: (cssUrl: string) => Promise<string>;
     addIcons: (addCollectionFn: typeof addCollection) => void;
 };
 declare const define: (importMetaUrl: string, ComponentClass: typeof HTMLElement) => void;
@@ -681,6 +685,7 @@ declare const form: {
     submit: (data: FormData | Record<string, unknown>) => Promise<FormResult>;
 };
 declare const hostCss: typeof hostCssRaw;
+declare const loadCss: (cssUrl: string) => Promise<string>;
 declare const tailwindConfig: {
     content: string[];
     theme: {
@@ -706,6 +711,6 @@ declare const tailwindConfig: {
 };
 declare const addIcons: (addCollectionFn: typeof addCollection) => void;
 
-export { addIcons, api, config, resolvers as default, define, form, host, hostCss, iframe, on, tailwindConfig };
+export { addIcons, api, config, resolvers as default, define, form, host, hostCss, iframe, loadCss, on, tailwindConfig };
 
-}
+    }
