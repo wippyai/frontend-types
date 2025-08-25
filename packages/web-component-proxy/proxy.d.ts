@@ -23,6 +23,8 @@ declare namespace PageApi {
         group_icon?: string;
         group_placement?: 'default' | 'bottom';
         content_version?: string;
+        /** The content of the page artifact, which can be HTML, Markdown, or JSON with wippy specific package.json info */
+        content_type?: 'text/html' | 'text/markdown' | 'application/json';
     }
     interface PagesResponse {
         count: number;
@@ -92,11 +94,24 @@ declare enum ArtifactStatus {
      * any further input from the user.
      * UI should show the artifact as read-only or with limited interactivity.
      */
-    IDLE = "idle"
+    IDLE = "idle",
+    /**
+     * The artifact is being built by the system.
+     */
+    BUILDING = "building",
+    /**
+     * The artifact is being unit tested by the system.
+     */
+    TESTING = "testing",
+    /**
+     * The artifact failed to generate
+     */
+    ERROR = "error"
 }
 declare enum ArtifactType {
     /**
      * The artifact is embedded within chat message, html is sanitized to very basic tags.
+     * Applies only to text/html and text/markdown content types.
      */
     INLINE = "inline",
     /**
@@ -115,7 +130,8 @@ interface Artifact {
     description?: string;
     icon?: string;
     type: ArtifactType;
-    content_type: 'text/html' | 'text/markdown';
+    /** The content of the artifact, which can be HTML, Markdown, or JSON with wippy specific package.json info */
+    content_type: 'text/html' | 'text/markdown' | 'application/json';
     content_version?: string;
     status: ArtifactStatus;
 }
@@ -388,12 +404,13 @@ interface WsMessage_Upload extends WsMessageBase {
 }
 type WsMessage = WsMessage_Welcome | WsMessage_Pages | WsMessage_Page | WsMessage_SessionMessage | WsMessage_Session | WsMessage_SessionClosed | WsMessage_Error | WsMessage_Artifact | WsMessage_SessionOpen | WsMessage_Action | WsMessage_Registry | WsMessage_RegistryEntry | WsMessage_Upload;
 
-type KnownTopics = '@history' | '@message';
+type KnownTopics = '@history' | '@visibility' | '@message';
 type Events = {
     /** Emitted when pages are updated */
     '@history': (data: {
         path: string;
     }) => void;
+    '@visibility': (visible: boolean) => void;
     '@message': (data: WsMessage) => void;
 } & {
     [K in string as K extends KnownTopics ? never : K]: (data: WsMessage) => void;
@@ -504,6 +521,7 @@ interface AppFeatures extends I18NFeatureTypes {
     allowSelectModel?: boolean;
     startNavOpen?: boolean;
     hideNavBar?: boolean;
+    disableRightPanel?: boolean;
 }
 interface AppAuthConfig {
     token: string;
@@ -580,6 +598,7 @@ declare const resolvers: {
             target: "modal" | "sidebar";
         }) => void;
         navigate: (url: string) => void;
+        onRouteChanged: (internalRoute: string) => void;
         handleError: (code: ("auth-expired" | "other"), error: Record<string, unknown>) => void;
         setContext: (context: Record<string, unknown>, sessionUUID?: string, source?: {
             type: "page" | "artifact";
@@ -587,7 +606,9 @@ declare const resolvers: {
             instanceUUID?: string;
         }) => void;
         formatUrl: (relativeUrl: string) => string;
+        logout: () => void;
     };
+    /** @deprecated, use `host` instead to host calls */
     readonly iframe: {
         toast: (message: primevue_toast.ToastMessageOptions) => void;
         confirm: (options: LimitedConfirmationOptions) => Promise<boolean>;
@@ -601,13 +622,16 @@ declare const resolvers: {
             uuid: string;
         }) => void;
         formatUrl: (relativeUrl: string) => string;
+        logout: () => void;
     };
-    readonly on: <T extends string>(topicPattern: T, callback: T extends "@history" ? Events["@history"] : Events["@message"]) => nanoevents.Unsubscribe;
+    readonly on: <T extends string>(topicPattern: T, callback: T extends "@history" | "@visibility" | "@message" ? Events[T] : Events["@message"]) => nanoevents.Unsubscribe;
     readonly config: AppConfig;
+    /** @deprecated, use direct api calls instead */
     readonly form: {
         get: () => Promise<FormState>;
         submit: (data: FormData | Record<string, unknown>) => Promise<FormResult>;
     };
+    readonly loadWebComponent: (componentId: string, tagName?: string) => Promise<void>;
     hostCss: typeof hostCssRaw;
     tailwindConfig: {
         content: string[];
@@ -656,6 +680,7 @@ declare const host: {
         target: "modal" | "sidebar";
     }) => void;
     navigate: (url: string) => void;
+    onRouteChanged: (internalRoute: string) => void;
     handleError: (code: ("auth-expired" | "other"), error: Record<string, unknown>) => void;
     setContext: (context: Record<string, unknown>, sessionUUID?: string, source?: {
         type: "page" | "artifact";
@@ -663,6 +688,7 @@ declare const host: {
         instanceUUID?: string;
     }) => void;
     formatUrl: (relativeUrl: string) => string;
+    logout: () => void;
 };
 declare const iframe: {
     toast: (message: primevue_toast.ToastMessageOptions) => void;
@@ -677,8 +703,9 @@ declare const iframe: {
         uuid: string;
     }) => void;
     formatUrl: (relativeUrl: string) => string;
+    logout: () => void;
 };
-declare const on: <T extends string>(topicPattern: T, callback: T extends "@history" ? Events["@history"] : Events["@message"]) => nanoevents.Unsubscribe;
+declare const on: <T extends string>(topicPattern: T, callback: T extends "@history" | "@visibility" | "@message" ? Events[T] : Events["@message"]) => nanoevents.Unsubscribe;
 declare const config: AppConfig;
 declare const form: {
     get: () => Promise<FormState>;
@@ -709,8 +736,9 @@ declare const tailwindConfig: {
     };
     plugins: any[];
 };
+declare const loadWebComponent: (componentId: string, tagName?: string) => Promise<void>;
 declare const addIcons: (addCollectionFn: typeof addCollection) => void;
 
-export { addIcons, api, config, resolvers as default, define, form, host, hostCss, iframe, loadCss, on, tailwindConfig };
+export { addIcons, api, config, resolvers as default, define, form, host, hostCss, iframe, loadCss, loadWebComponent, on, tailwindConfig };
 
     }

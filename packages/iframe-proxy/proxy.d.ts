@@ -1,5 +1,5 @@
 import * as nanoevents from 'nanoevents';
-import { AxiosInstance } from 'axios';
+import { AxiosDefaults, AxiosInstance } from 'axios';
 import { ConfirmationOptions } from 'primevue/confirmationoptions';
 import { ToastMessageOptions } from 'primevue/toast';
 
@@ -20,6 +20,8 @@ declare namespace PageApi {
         group_icon?: string;
         group_placement?: 'default' | 'bottom';
         content_version?: string;
+        /** The content of the page artifact, which can be HTML, Markdown, or JSON with wippy specific package.json info */
+        content_type?: 'text/html' | 'text/markdown' | 'application/json';
     }
     interface PagesResponse {
         count: number;
@@ -89,11 +91,24 @@ declare enum ArtifactStatus {
      * any further input from the user.
      * UI should show the artifact as read-only or with limited interactivity.
      */
-    IDLE = "idle"
+    IDLE = "idle",
+    /**
+     * The artifact is being built by the system.
+     */
+    BUILDING = "building",
+    /**
+     * The artifact is being unit tested by the system.
+     */
+    TESTING = "testing",
+    /**
+     * The artifact failed to generate
+     */
+    ERROR = "error"
 }
 declare enum ArtifactType {
     /**
      * The artifact is embedded within chat message, html is sanitized to very basic tags.
+     * Applies only to text/html and text/markdown content types.
      */
     INLINE = "inline",
     /**
@@ -112,7 +127,8 @@ interface Artifact {
     description?: string;
     icon?: string;
     type: ArtifactType;
-    content_type: 'text/html' | 'text/markdown';
+    /** The content of the artifact, which can be HTML, Markdown, or JSON with wippy specific package.json info */
+    content_type: 'text/html' | 'text/markdown' | 'application/json';
     content_version?: string;
     status: ArtifactStatus;
 }
@@ -385,17 +401,18 @@ interface WsMessage_Upload extends WsMessageBase {
 }
 type WsMessage = WsMessage_Welcome | WsMessage_Pages | WsMessage_Page | WsMessage_SessionMessage | WsMessage_Session | WsMessage_SessionClosed | WsMessage_Error | WsMessage_Artifact | WsMessage_SessionOpen | WsMessage_Action | WsMessage_Registry | WsMessage_RegistryEntry | WsMessage_Upload;
 
-type KnownTopics = '@history' | '@message';
+type KnownTopics = '@history' | '@visibility' | '@message';
 type Events = {
     /** Emitted when pages are updated */
     '@history': (data: {
         path: string;
     }) => void;
+    '@visibility': (visible: boolean) => void;
     '@message': (data: WsMessage) => void;
 } & {
     [K in string as K extends KnownTopics ? never : K]: (data: WsMessage) => void;
 };
-declare function createEvents(): <T extends string>(topicPattern: T, callback: T extends "@history" ? Events["@history"] : Events["@message"]) => nanoevents.Unsubscribe;
+declare function createEvents(): <T extends string>(topicPattern: T, callback: T extends KnownTopics ? Events[T] : Events["@message"]) => nanoevents.Unsubscribe;
 
 var cssRS = {
 	
@@ -496,10 +513,13 @@ interface AppFeatures extends I18NFeatureTypes {
         APP_AUTH_API_URL: string;
         APP_WEBSOCKET_URL: string;
     };
+    axiosDefaults?: Partial<AxiosDefaults>;
     routePrefix?: string;
     showAdmin?: boolean;
     allowSelectModel?: boolean;
     startNavOpen?: boolean;
+    hideNavBar?: boolean;
+    disableRightPanel?: boolean;
 }
 interface AppAuthConfig {
     token: string;
@@ -547,7 +567,7 @@ interface FormResult {
 type LimitedConfirmationOptions = Omit<ConfirmationOptions, 'target' | 'appendTo' | 'onShow' | 'onHide'>;
 interface ProxyApiInstance {
     config: AppConfig;
-    /** Deprecated, use `host` instead */
+    /** @deprecated, use `host` instead */
     iframe: {
         toast: (message: ToastMessageOptions) => void;
         confirm: (options: LimitedConfirmationOptions) => Promise<boolean>;
@@ -561,6 +581,7 @@ interface ProxyApiInstance {
             uuid: string;
         }) => void;
         formatUrl: (relativeUrl: string) => string;
+        logout: () => void;
     };
     host: {
         toast: (message: ToastMessageOptions) => void;
@@ -575,6 +596,7 @@ interface ProxyApiInstance {
             target: 'modal' | 'sidebar';
         }) => void;
         navigate: (url: string) => void;
+        onRouteChanged: (internalRoute: string) => void;
         handleError: (code: ('auth-expired' | 'other'), error: Record<string, unknown>) => void;
         setContext: (context: Record<string, unknown>, sessionUUID?: string, source?: {
             type: 'page' | 'artifact';
@@ -582,13 +604,53 @@ interface ProxyApiInstance {
             instanceUUID?: string;
         }) => void;
         formatUrl: (relativeUrl: string) => string;
+        logout: () => void;
     };
     api: AxiosInstance;
+    /** @deprecated, use api calls instead */
     form: {
         get: () => Promise<FormState>;
         submit: (data: FormData | Record<string, unknown>) => Promise<FormResult>;
     };
     on: ReturnType<typeof createEvents>;
+    loadWebComponent: (componentId: string, tagName?: string) => Promise<void>;
+}
+
+interface ProxyConfig$1 {
+    enabled: boolean;
+    injections: {
+        css: {
+            fonts: boolean;
+            themeConfig: boolean;
+            iframe: boolean;
+            primevue: boolean;
+            markdown: boolean;
+            customCss: boolean;
+            customVariabled: boolean;
+        };
+        tailwindConfig: boolean;
+        resizeObserver: boolean;
+        preventLinkClicks: boolean;
+        iconifyIcons: boolean;
+        refreshWhenVisible: boolean;
+    };
+}
+
+declare const GLOBAL_CONFIG_VAR: "__WIPPY_APP_CONFIG__";
+declare const GLOBAL_PROXY_CONFIG_VAR: "__WIPPY_PROXY_CONFIG__";
+declare const GLOBAL_API_PROVIDER: "__WIPPY_APP_API__";
+declare const GLOBAL_WEB_COMPONENT_CACHE: "__WIPPY_WEB_COMPONENT_CACHE__";
+declare global {
+    interface Window {
+        [GLOBAL_CONFIG_VAR]: AppConfig;
+        [GLOBAL_API_PROVIDER]: ProxyApiInstance;
+        [GLOBAL_PROXY_CONFIG_VAR]?: ProxyConfig$1;
+        [GLOBAL_WEB_COMPONENT_CACHE]: Record<string, {
+            usedAt: number;
+            data: string;
+            clearable: boolean;
+        }>;
+    }
 }
 
 /** @type {import('tailwindcss').Config} */
@@ -632,6 +694,7 @@ interface ProxyConfig {
         resizeObserver: boolean;
         preventLinkClicks: boolean;
         iconifyIcons: boolean;
+        refreshWhenVisible: boolean;
     };
 }
 declare global {
@@ -649,10 +712,11 @@ declare global {
             host: () => Promise<ProxyApiInstance['host']>;
             iframe: () => Promise<ProxyApiInstance['iframe']>;
             on: () => Promise<ProxyApiInstance['on']>;
+            loadWebComponent: () => Promise<ProxyApiInstance['loadWebComponent']>;
         };
         tailwind?: {
             config: Partial<typeof _default>;
         };
-        __WIPPY_PROXY_CONFIG__?: ProxyConfig;
+        [GLOBAL_PROXY_CONFIG_VAR]?: ProxyConfig;
     }
 }
